@@ -1,0 +1,235 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<!----------------------------------------------------------
+Copyright (c) 2024 Ricardo Pinho 
+contact: ricardo.pinho at gisvm.com
+released under GNU Affero General Public License Version 3: 
+https://www.gnu.org/licenses/agpl-3.0.txt
+------------------------------------------------------------>
+<!--
+  Copyright (c) 2017-2018 Jean-Marc VIGLINO,
+  released under CeCILL-B (french BSD like) licence: http://www.cecill.info/
+-->
+  <title>OrtoSat2023</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+  <meta name="description" content="Descarga de ficheiros das secções OrtoSat2023" />
+  <meta name="keywords" content="descarga, orto, satelite, dados abertos" />
+
+  <link rel="icon" type="image/png" href="https://www.dgterritorio.pt/sites/default/files/Pin-DGT.png" />
+
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <!-- jQuery -->
+  <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.0.min.js"></script>
+
+  <!-- Openlayers -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css" />
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+  <script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL,Object.assign"></script>
+  
+  <!-- ol-ext -->
+<!--
+  <link rel="stylesheet" href="../../dist/ol-ext.css" />
+  <script type="text/javascript" src="../../dist/ol-ext.js"></script>
+  <link rel="stylesheet" href="../style.css"/>
+-->
+  <link rel="stylesheet" href="https://viglino.github.io/ol-ext/dist/ol-ext.css" />
+  <script type="text/javascript" src="https://viglino.github.io/ol-ext/dist/ol-ext.js"></script>
+
+
+  <!-- Pointer events polyfill for old browsers, see https://caniuse.com/#feat=pointer -->
+<!--
+  <script src="https://unpkg.com/elm-pep"></script>
+
+  <link rel="stylesheet" href="https://viglino.github.io/ol-ext/dist/ol-ext.css"/>
+
+  <link rel="stylesheet" href="https://viglino.github.io/ol-ext/examples/style.css"/>
+ -->
+
+  <link rel="stylesheet" href="style.css"/>
+<style id="compiled-css" type="text/css">
+html,
+body {
+  height: 100%;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.grid-container {
+  display: grid;
+  grid-template-columns: auto 20em;
+  grid-template-rows: 100vh;
+  gap: 0px;
+  padding: 0px;
+}
+.grid-container > div {
+  border: 0px;
+}
+</style>
+
+</head>
+<body >
+<div class="grid-container">
+  <!-- DIV pour la carte -->
+  <div id="map"></div>
+  <div class="options">
+    <h2>Instruções:</h2>
+    <i>Clique na secção do mapa para obter os atalhos para descarga dos respetivos ficheiros OrtoSat2023.</i>
+    <ul style="list-style:initial; padding: 0 1em;"></ul>
+  </div>
+</div>
+  
+  <script type="text/javascript">
+  // Layers
+  var layers = [
+    new ol.layer.Tile({
+			title:'OSM',
+			baseLayer: true,
+			source: new ol.source.OSM()
+		}),
+	new ol.layer.Tile({
+        title: 'OrtoSat2023',
+        type: 'base',
+        baseLayer: false,
+        visible: false,
+        source: new ol.source.TileWMS({
+          url: 'https://ortos.dgterritorio.gov.pt/wms/ortosat2023',
+          params: {
+            'LAYERS': 'ortoSat2023-CorVerdadeira'
+          }
+        })
+    }),
+	new ol.layer.Tile({
+        title: 'NUTSIII',
+        type: 'base',
+        baseLayer: false,
+        visible: false,
+        source: new ol.source.TileWMS({
+          url: 'https://geo2.dgterritorio.gov.pt/geoserver/caop_continente/wms',
+          params: {
+            'LAYERS': 'NUTSIII'
+          }
+        })
+    }),
+	new ol.layer.Tile({
+        title: 'Municípios',
+        type: 'base',
+        baseLayer: false,
+        visible: false,
+        source: new ol.source.TileWMS({
+          url: 'https://geo2.dgterritorio.gov.pt/geoserver/caop_continente/wms',
+          params: {
+            'LAYERS': 'Municipios'
+          }
+        })
+    })
+  ]
+
+  // The map
+  var map = new ol.Map({
+    target: 'map',
+    view: new ol.View({
+      zoom: 8,
+	  center: ol.proj.fromLonLat([-8.173828,39.694507])
+    }),
+    layers: layers
+  });
+
+// Add layer switcher
+var switcher = new ol.control.LayerSwitcher({
+    //target: 'map2',
+    //show_progress:true,
+    //extent:true,
+    //trash:true,
+	collapsed: false,
+	reordering: false
+});
+map.addControl(switcher);
+$('body').toggleClass('hideOpacity');
+
+  // GeoJSON layer
+  var vectorSource = new ol.source.Vector({
+    //url: 'seccoes.geojson',
+	//format: new ol.format.GeoJSON(),
+
+    url: 'ortosat2023sessoes.geojson',
+    format: new ol.format.GeoJSON(),
+
+    attributions: [ "&copy; <a href='https://www.dgterritorio.pt/'>DGT</a>" ],
+  });
+
+  map.addLayer(new ol.layer.VectorImage({
+    name: 'Secções',
+    source: vectorSource
+  }));
+
+  // Select  interaction
+  var selecti = new ol.interaction.Select({
+    hitTolerance: 5,
+    condition: ol.events.condition.singleClick
+  });
+  map.addInteraction(selecti);
+  // Select feature when click on the reference index
+  selecti.on('select', function(e) {
+    var f = e.selected[0];
+    if (f) {
+      showInfo(f)
+      listCtrl.select(f)
+    }
+  });
+
+  function showInfo(f) {
+    var prop = f.getProperties();
+    var ul = $('.options ul').html('');
+    for (var p in prop) if (p!=='geometry') {
+	  if (p=='seccao') {
+        $('<li>').text(p+': '+prop[p]).appendTo(ul);}
+	  else if (p=='cor_verdadeira_descarga') {
+	    $('<p />').append($('<a></a>',{href: prop[p] , text: p})).appendTo(ul);}
+	  else if (p=='falsa_cor_descarga') {
+	    $('<p />').append($('<a></a>',{href: prop[p] , text: p})).appendTo(ul);}
+	  else if (p=='Municipio') {
+	    $('<li>').text(p+': '+prop[p]).appendTo(ul);}
+	  else if (p=='municipio_descarga' && prop[p]) {
+	      $('<p />').append($('<a></a>',{href: prop[p] , text: p})).appendTo(ul);}  
+      else if (p=='NUTSIII') {
+	    $('<li>').text(p+': '+prop[p]).appendTo(ul);}
+	  else if (p=='NUTSIII_descarga' && prop[p]) {
+	      $('<p />').append($('<a></a>',{href: prop[p] , text: p})).appendTo(ul);}
+    }
+  }
+
+  // Select control
+  var listCtrl = new ol.control.FeatureList({
+    title: 'Secções OrtoSat 2023',
+    // className: 'ol-bottom',
+    collapsed: true,
+    features: vectorSource,
+    // target: document.body
+  });
+  listCtrl.enableSort('sec_num')
+  map.addControl (listCtrl);
+  listCtrl.on('select', function(e) {
+    selecti.getFeatures().clear();
+    selecti.getFeatures().push(e.feature);
+    showInfo(e.feature)
+  });
+  listCtrl.on('dblclick', function(e) {
+    map.getView().fit(e.feature.getGeometry().getExtent())
+    map.getView().setZoom(map.getView().getZoom() - 1)
+  })
+
+  listCtrl.on(['resize', 'collapse'], function(e) {
+    console.log(e)
+  })
+
+
+  </script>
+  
+</body>
+</html>
